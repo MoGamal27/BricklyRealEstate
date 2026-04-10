@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Real Estate Chat</title>
+  <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+</head>
+<body>
+  <div id="chat-container">
+    <div id="messages"></div>
+    <input type="text" id="message-input" placeholder="Type a message...">
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    // Connect to WebSocket server
+    const socket = io('http://localhost:3000');
+
+    const chatId = '6da595f1-b296-49f4-af57-0bf933289ece';
+    const userId = '5b446e78-5e26-4a58-9132-48a69536cfc6';
+
+    // Join chat room on connection
+    socket.on('connect', () => {
+      console.log('Connected to server');
+      socket.emit('join_chat', { chatId, userId });
+    });
+
+    // Handle joining chat room
+    socket.on('joined_chat', (data) => {
+      console.log('Joined chat:', data.chatId);
+    });
+
+    // Receive messages
+    socket.on('receive_message', (message) => {
+      displayMessage(message);
+    });
+
+    // Handle typing indicators
+    socket.on('user_typing', (data) => {
+      showTypingIndicator(data.userId, data.isTyping);
+    });
+
+    // Send message function
+    function sendMessage() {
+      const input = document.getElementById('message-input');
+      const content = input.value.trim();
+
+      if (content) {
+        socket.emit('send_message', {
+          content,
+          chatId,
+          senderId: userId
+        });
+        input.value = '';
+      }
+    }
+
+    // Display message in UI
+    function displayMessage(message) {
+      const messagesDiv = document.getElementById('messages');
+      const messageElement = document.createElement('div');
+      messageElement.textContent = `${message.senderId}: ${message.content}`;
+      messagesDiv.appendChild(messageElement);
+    }
+
+    // Show typing indicator
+    function showTypingIndicator(userId, isTyping) {
+      // Implementation depends on your UI
+      console.log(`User ${userId} typing:`, isTyping);
+    }
+
+    // Send typing indicator
+    const messageInput = document.getElementById('message-input');
+    let typingTimeout;
+
+    messageInput.addEventListener('input', () => {
+      socket.emit('typing', { chatId, userId, isTyping: true });
+
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        socket.emit('typing', { chatId, userId, isTyping: false });
+      }, 1000);
+    });
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      socket.emit('leave_chat', { chatId, userId });
+    });
+  </script>
+</body>
+</html>

@@ -33,7 +33,8 @@ let PropertiesService = class PropertiesService {
         const { page = 1, limit = 10, ...filters } = filterDto;
         const queryBuilder = this.propertiesRepository
             .createQueryBuilder('property')
-            .leftJoinAndSelect('property.seller', 'seller');
+            .leftJoin('property.seller', 'seller')
+            .addSelect(['seller.id', 'seller.email', 'seller.name', 'seller.phone']);
         if (filters.type) {
             queryBuilder.andWhere('property.type = :type', { type: filters.type });
         }
@@ -88,10 +89,12 @@ let PropertiesService = class PropertiesService {
         };
     }
     async findOne(id) {
-        const property = await this.propertiesRepository.findOne({
-            where: { id },
-            relations: ['seller'],
-        });
+        const property = await this.propertiesRepository
+            .createQueryBuilder('property')
+            .leftJoin('property.seller', 'seller')
+            .addSelect(['seller.id', 'seller.email', 'seller.name', 'seller.phone'])
+            .where('property.id = :id', { id })
+            .getOne();
         if (!property) {
             throw new common_1.NotFoundException('Property not found');
         }
