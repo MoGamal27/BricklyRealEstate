@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var PropertiesService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PropertiesService = void 0;
 const common_1 = require("@nestjs/common");
@@ -18,16 +19,55 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const property_entity_1 = require("./entities/property.entity");
 const enums_1 = require("../common/enums");
-let PropertiesService = class PropertiesService {
-    constructor(propertiesRepository) {
+const ai_price_prediction_service_1 = require("./ai-price-prediction.service");
+let PropertiesService = PropertiesService_1 = class PropertiesService {
+    constructor(propertiesRepository, aiPricePredictionService) {
         this.propertiesRepository = propertiesRepository;
+        this.aiPricePredictionService = aiPricePredictionService;
+        this.logger = new common_1.Logger(PropertiesService_1.name);
     }
-    async create(createPropertyDto, sellerId) {
+    async create(createPropertyDto, sellerId, imageUrls) {
+        let aiPriceSuggested = null;
+        try {
+            this.logger.log('Requesting AI price prediction for new property');
+            aiPriceSuggested = await this.aiPricePredictionService.predictPrice({
+                type: createPropertyDto.type,
+                bedrooms: createPropertyDto.bedrooms,
+                bathrooms: createPropertyDto.bathrooms,
+                area: createPropertyDto.area,
+                furnished: createPropertyDto.furnished,
+                level: createPropertyDto.level,
+                compound: createPropertyDto.compound,
+                paymentOption: createPropertyDto.paymentOption,
+                deliveryDate: createPropertyDto.deliveryDate,
+                city: createPropertyDto.city,
+            });
+            if (aiPriceSuggested) {
+                this.logger.log(`AI suggested price: ${aiPriceSuggested} EGP (User price: ${createPropertyDto.price} EGP)`);
+            }
+            else {
+                this.logger.warn('AI price prediction returned null');
+            }
+        }
+        catch (error) {
+            this.logger.error(`Failed to get AI price prediction: ${error.message}`, error.stack);
+        }
         const property = this.propertiesRepository.create({
             ...createPropertyDto,
             sellerId,
+            images: imageUrls,
+            aiPriceSuggested: aiPriceSuggested || undefined,
         });
-        return await this.propertiesRepository.save(property);
+        const savedProperty = await this.propertiesRepository.save(property);
+        return {
+            ...savedProperty,
+            aiPriceDifference: aiPriceSuggested
+                ? savedProperty.price - aiPriceSuggested
+                : null,
+            aiPriceDifferencePercentage: aiPriceSuggested
+                ? ((savedProperty.price - aiPriceSuggested) / aiPriceSuggested) * 100
+                : null,
+        };
     }
     async findAll(filterDto) {
         const { page = 1, limit = 10, ...filters } = filterDto;
@@ -102,7 +142,7 @@ let PropertiesService = class PropertiesService {
         await this.propertiesRepository.save(property);
         return property;
     }
-    async update(id, updatePropertyDto, userId, userRole) {
+    async update(id, updatePropertyDto, userId, userRole, imageUrls) {
         const property = await this.propertiesRepository.findOne({
             where: { id },
         });
@@ -113,6 +153,9 @@ let PropertiesService = class PropertiesService {
             throw new common_1.ForbiddenException('You do not have permission to update this property');
         }
         Object.assign(property, updatePropertyDto);
+        if (imageUrls && imageUrls.length > 0) {
+            property.images = imageUrls;
+        }
         return await this.propertiesRepository.save(property);
     }
     async updateStatus(id, updateStatusDto) {
@@ -140,9 +183,10 @@ let PropertiesService = class PropertiesService {
     }
 };
 exports.PropertiesService = PropertiesService;
-exports.PropertiesService = PropertiesService = __decorate([
+exports.PropertiesService = PropertiesService = PropertiesService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(property_entity_1.Property)),
-    __metadata("design:paramtypes", [typeorm_2.Repository])
+    __metadata("design:paramtypes", [typeorm_2.Repository,
+        ai_price_prediction_service_1.AIPricePredictionService])
 ], PropertiesService);
 //# sourceMappingURL=properties.service.js.map

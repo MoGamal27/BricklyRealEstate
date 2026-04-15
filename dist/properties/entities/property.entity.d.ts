@@ -23,6 +23,7 @@ export declare class Property {
     address: string;
     latitude: number;
     longitude: number;
+    images: string[];
     aiPriceSuggested: number;
     views: number;
     createdAt: Date;

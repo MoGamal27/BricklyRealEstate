@@ -5,10 +5,45 @@ import { UpdatePropertyDto } from './dto/update-property.dto';
 import { UpdatePropertyStatusDto } from './dto/update-property-status.dto';
 import { FilterPropertyDto } from './dto/filter-property.dto';
 import { UserRole } from '../common/enums';
+import { AIPricePredictionService } from './ai-price-prediction.service';
 export declare class PropertiesService {
     private propertiesRepository;
-    constructor(propertiesRepository: Repository<Property>);
-    create(createPropertyDto: CreatePropertyDto, sellerId: string): Promise<Property>;
+    private aiPricePredictionService;
+    private readonly logger;
+    constructor(propertiesRepository: Repository<Property>, aiPricePredictionService: AIPricePredictionService);
+    create(createPropertyDto: CreatePropertyDto, sellerId: string, imageUrls: string[]): Promise<{
+        aiPriceDifference: number;
+        aiPriceDifferencePercentage: number;
+        id: string;
+        title: string;
+        description: string;
+        status: import("../common/enums").PropertyStatus;
+        type: import("../common/enums").PropertyType;
+        price: number;
+        bedrooms: number;
+        bathrooms: number;
+        area: number;
+        furnished: boolean;
+        level: number;
+        compound: string;
+        paymentOption: string;
+        deliveryDate: Date;
+        city: string;
+        neighborhood: string;
+        address: string;
+        latitude: number;
+        longitude: number;
+        images: string[];
+        aiPriceSuggested: number;
+        views: number;
+        createdAt: Date;
+        updatedAt: Date;
+        sellerId: string;
+        seller: import("../users/entities/user.entity").User;
+        wishlists: import("../wishlists/entities/wishlist.entity").Wishlist[];
+        bookings: import("../bookings/entities/booking.entity").Booking[];
+        chats: import("../chats/entities/chat.entity").Chat[];
+    }>;
     findAll(filterDto: FilterPropertyDto): Promise<{
         data: Property[];
         total: number;
@@ -17,7 +52,7 @@ export declare class PropertiesService {
         totalPages: number;
     }>;
     findOne(id: string): Promise<Property>;
-    update(id: string, updatePropertyDto: UpdatePropertyDto, userId: string, userRole: UserRole): Promise<Property>;
+    update(id: string, updatePropertyDto: UpdatePropertyDto, userId: string, userRole: UserRole, imageUrls?: string[]): Promise<Property>;
     updateStatus(id: string, updateStatusDto: UpdatePropertyStatusDto): Promise<Property>;
     remove(id: string, userId: string, userRole: UserRole): Promise<{
         message: string;

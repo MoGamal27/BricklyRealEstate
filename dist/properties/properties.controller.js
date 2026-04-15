@@ -14,6 +14,8 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PropertiesController = void 0;
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
+const multer_1 = require("multer");
 const properties_service_1 = require("./properties.service");
 const create_property_dto_1 = require("./dto/create-property.dto");
 const update_property_dto_1 = require("./dto/update-property.dto");
@@ -24,9 +26,11 @@ const roles_guard_1 = require("../common/guards/roles.guard");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const roles_decorator_1 = require("../common/decorators/roles.decorator");
 const enums_1 = require("../common/enums");
+const cloudinary_service_1 = require("../cloudinary/cloudinary.service");
 let PropertiesController = class PropertiesController {
-    constructor(propertiesService) {
+    constructor(propertiesService, cloudinaryService) {
         this.propertiesService = propertiesService;
+        this.cloudinaryService = cloudinaryService;
     }
     async findAll(filterDto) {
         return this.propertiesService.findAll(filterDto);
@@ -34,11 +38,19 @@ let PropertiesController = class PropertiesController {
     async findOne(id) {
         return this.propertiesService.findOne(id);
     }
-    async create(createPropertyDto, user) {
-        return this.propertiesService.create(createPropertyDto, user.id);
+    async create(createPropertyDto, user, files) {
+        if (!files || files.length < 4) {
+            throw new common_1.BadRequestException('At least 4 images are required');
+        }
+        const imageUrls = await this.cloudinaryService.uploadImages(files);
+        return this.propertiesService.create(createPropertyDto, user.id, imageUrls);
     }
-    async update(id, updatePropertyDto, user) {
-        return this.propertiesService.update(id, updatePropertyDto, user.id, user.role);
+    async update(id, updatePropertyDto, user, files) {
+        let imageUrls;
+        if (files && files.length > 0) {
+            imageUrls = await this.cloudinaryService.uploadImages(files);
+        }
+        return this.propertiesService.update(id, updatePropertyDto, user.id, user.role, imageUrls);
     }
     async updateStatus(id, updateStatusDto) {
         return this.propertiesService.updateStatus(id, updateStatusDto);
@@ -66,21 +78,25 @@ __decorate([
     (0, common_1.Post)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(enums_1.UserRole.SELLER, enums_1.UserRole.ADMIN),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FilesInterceptor)('images', 10, { storage: (0, multer_1.memoryStorage)() })),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __param(2, (0, common_1.UploadedFiles)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_property_dto_1.CreatePropertyDto, Object]),
+    __metadata("design:paramtypes", [create_property_dto_1.CreatePropertyDto, Object, Array]),
     __metadata("design:returntype", Promise)
 ], PropertiesController.prototype, "create", null);
 __decorate([
     (0, common_1.Put)(':id'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(enums_1.UserRole.SELLER, enums_1.UserRole.ADMIN),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FilesInterceptor)('images', 10, { storage: (0, multer_1.memoryStorage)() })),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, current_user_decorator_1.CurrentUser)()),
+    __param(3, (0, common_1.UploadedFiles)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_property_dto_1.UpdatePropertyDto, Object]),
+    __metadata("design:paramtypes", [String, update_property_dto_1.UpdatePropertyDto, Object, Array]),
     __metadata("design:returntype", Promise)
 ], PropertiesController.prototype, "update", null);
 __decorate([
@@ -105,6 +121,7 @@ __decorate([
 ], PropertiesController.prototype, "remove", null);
 exports.PropertiesController = PropertiesController = __decorate([
     (0, common_1.Controller)('properties'),
-    __metadata("design:paramtypes", [properties_service_1.PropertiesService])
+    __metadata("design:paramtypes", [properties_service_1.PropertiesService,
+        cloudinary_service_1.CloudinaryService])
 ], PropertiesController);
 //# sourceMappingURL=properties.controller.js.map

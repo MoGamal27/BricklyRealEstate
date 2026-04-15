@@ -9,18 +9,28 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PropertiesModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
+const axios_1 = require("@nestjs/axios");
 const properties_controller_1 = require("./properties.controller");
 const properties_service_1 = require("./properties.service");
+const ai_price_prediction_service_1 = require("./ai-price-prediction.service");
 const property_entity_1 = require("./entities/property.entity");
+const cloudinary_module_1 = require("../cloudinary/cloudinary.module");
 let PropertiesModule = class PropertiesModule {
 };
 exports.PropertiesModule = PropertiesModule;
 exports.PropertiesModule = PropertiesModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([property_entity_1.Property])],
+        imports: [
+            typeorm_1.TypeOrmModule.forFeature([property_entity_1.Property]),
+            axios_1.HttpModule.register({
+                timeout: 10000,
+                maxRedirects: 5,
+            }),
+            cloudinary_module_1.CloudinaryModule,
+        ],
         controllers: [properties_controller_1.PropertiesController],
-        providers: [properties_service_1.PropertiesService],
-        exports: [properties_service_1.PropertiesService],
+        providers: [properties_service_1.PropertiesService, ai_price_prediction_service_1.AIPricePredictionService],
+        exports: [properties_service_1.PropertiesService, ai_price_prediction_service_1.AIPricePredictionService],
     })
 ], PropertiesModule);
 //# sourceMappingURL=properties.module.js.map

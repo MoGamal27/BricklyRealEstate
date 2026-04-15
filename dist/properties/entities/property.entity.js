@@ -103,6 +103,10 @@ __decorate([
     __metadata("design:type", Number)
 ], Property.prototype, "longitude", void 0);
 __decorate([
+    (0, typeorm_1.Column)('simple-array', { nullable: true }),
+    __metadata("design:type", Array)
+], Property.prototype, "images", void 0);
+__decorate([
     (0, typeorm_1.Column)('int', { nullable: true }),
     __metadata("design:type", Number)
 ], Property.prototype, "aiPriceSuggested", void 0);

@@ -80,6 +80,9 @@ export class Property {
   @Column('float')
   longitude: number;
 
+  @Column('simple-array', { nullable: true })
+  images: string[];
+
   @Column('int', { nullable: true })
   aiPriceSuggested: number;
 
