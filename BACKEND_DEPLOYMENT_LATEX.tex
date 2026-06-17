@@ -1,0 +1,271 @@
+\section{Back-End Development}
+
+Our back-end development is focused on providing a robust and efficient server that handles real estate property management, user authentication, real-time chat communication, and booking coordination. The back-end is developed using NestJS, a progressive Node.js framework for building efficient and scalable server-side applications, specifically version 11.1.8. This framework allows us to create modular, maintainable, and testable applications with TypeScript, making it an ideal choice for our real estate platform.
+
+\subsection{Technology Stack}
+
+We start by outlining the core technologies used in our back-end architecture. NestJS is used for creating the web server and API endpoints, providing a solid foundation with dependency injection and modular architecture. TypeORM serves as our Object-Relational Mapping (ORM) tool, allowing seamless interaction with PostgreSQL database. For authentication, we use Passport.js with JWT (JSON Web Tokens) strategy to secure our endpoints and manage user sessions. Additionally, we use Socket.io for real-time bidirectional communication, enabling instant messaging between buyers and sellers.
+
+The application leverages several key libraries: bcrypt for password hashing and security, class-validator and class-transformer for request validation and data transformation, and pg (node-postgres) as the PostgreSQL client driver. These libraries work together to ensure data integrity, security, and efficient database operations.
+
+\subsection{Application Architecture}
+
+The NestJS application is initialized in the \texttt{main.ts} file, where we configure global settings including CORS (Cross-Origin Resource Sharing) to allow front-end communication, global validation pipes for automatic request validation, and global exception filters for consistent error handling. The application listens on port 3000 by default, or uses the PORT environment variable when deployed.
+
+\begin{verbatim}
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  
+  app.enableCors({
+    origin: '*',
+    credentials: true,
+  });
+  
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+  
+  app.useGlobalFilters(new HttpExceptionFilter());
+  
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+}
+\end{verbatim}
+
+\subsection{Module Structure}
+
+Our application follows a modular architecture with eight main feature modules:
+
+\textbf{Authentication Module (auth):} Handles user registration, login, and JWT token management. It implements Passport JWT strategy for protecting routes and validating user credentials. The module provides endpoints for user registration with role assignment (BUYER, SELLER, ADMIN), user login with token generation, and token refresh functionality.
+
+\textbf{Users Module (users):} Manages user profiles and account information. It provides CRUD operations for user data, profile updates, and admin-level user management. The module enforces role-based access control, ensuring that only administrators can access sensitive user operations.
+
+\textbf{Properties Module (properties):} The core module for property management, handling all property-related operations including creation, retrieval, updates, and deletion. It implements advanced filtering capabilities allowing users to search properties by type (APARTMENT, VILLA, TOWNHOUSE, etc.), price range, number of bedrooms and bathrooms, location (city and neighborhood), furnished status, and approval status. The module also tracks property views and includes AI-suggested pricing functionality.
+
+\textbf{Wishlists Module (wishlists):} Enables users to save favorite properties for later viewing. It maintains a many-to-many relationship between users and properties, allowing buyers to create personalized collections of interesting properties.
+
+\textbf{Bookings Module (bookings):} Manages property viewing appointments between buyers and sellers. It handles booking creation with date and time scheduling, status management (PENDING, CONFIRMED, CANCELLED, COMPLETED), and coordination between parties. The module ensures that only authorized users can modify booking statuses.
+
+\textbf{Chats Module (chats):} Creates and manages chat rooms between buyers and sellers for specific properties. It maintains the relationship between users and provides access to chat history and participant information.
+
+\textbf{Messages Module (messages):} Stores and retrieves chat messages, maintaining message history and providing pagination for efficient data retrieval. It works in conjunction with the WebSocket gateway for real-time message delivery.
+
+\textbf{WebSocket Module (websocket):} Implements real-time communication using Socket.io. The ChatGateway handles WebSocket events including joining/leaving chat rooms, sending messages, and typing indicators. It broadcasts messages to connected clients in real-time, ensuring instant communication between users.
+
+\subsection{Database Integration}
+
+We use TypeORM with PostgreSQL for data persistence. The database connection is configured using environment variables, supporting both local development and cloud deployment. The configuration includes SSL support for secure connections to cloud databases:
+
+\begin{verbatim}
+TypeOrmModule.forRootAsync({
+  useFactory: (configService: ConfigService) => ({
+    type: 'postgres',
+    url: configService.get('DATABASE_URL'),
+    entities: [__dirname + '/**/*.entity{.ts,.js}'],
+    synchronize: true,
+    ssl: {
+      rejectUnauthorized: false,
+    },
+  }),
+})
+\end{verbatim}
+
+\subsection{Data Models and Entities}
+
+The application defines six main entities:
+
+\textbf{User Entity:} Stores user information including email, hashed password, name, role (BUYER, SELLER, ADMIN), and phone number. It establishes relationships with properties (as seller), wishlists, bookings, and chats.
+
+\textbf{Property Entity:} Contains comprehensive property information including title, description, type, price, specifications (bedrooms, bathrooms, area), location data (city, neighborhood, coordinates), status (PENDING, APPROVED, REJECTED, SOLD), and metadata (views, AI price suggestions). Each property is linked to a seller and can have multiple wishlists and bookings.
+
+\textbf{Wishlist Entity:} Represents the many-to-many relationship between users and properties, allowing users to save favorite properties.
+
+\textbf{Chat Entity:} Defines chat rooms between buyers and sellers for specific properties, maintaining references to both participants and the property being discussed.
+
+\textbf{Message Entity:} Stores individual messages within chats, including content, sender information, and timestamps.
+
+\textbf{Booking Entity:} Records property viewing appointments with date, time, status, and optional notes, linking buyers to specific properties.
+
+\subsection{API Endpoints}
+
+The application exposes RESTful API endpoints organized by module:
+
+\textbf{Authentication Endpoints:}
+\begin{itemize}
+    \item POST /auth/register - Register new user with role assignment
+    \item POST /auth/login - Authenticate user and receive JWT token
+    \item GET /auth/refresh - Refresh expired access token
+\end{itemize}
+
+\textbf{User Endpoints:}
+\begin{itemize}
+    \item GET /users/profile - Retrieve current user profile
+    \item PUT /users/profile - Update user information
+    \item GET /users - List all users (Admin only)
+    \item DELETE /users/:id - Remove user account (Admin only)
+\end{itemize}
+
+\textbf{Property Endpoints:}
+\begin{itemize}
+    \item GET /properties - List properties with filtering and pagination
+    \item GET /properties/:id - Retrieve single property details
+    \item POST /properties - Create new property listing (Seller/Admin)
+    \item PUT /properties/:id - Update property information (Seller/Admin)
+    \item PUT /properties/:id/status - Change property status (Admin only)
+    \item DELETE /properties/:id - Remove property listing (Seller/Admin)
+\end{itemize}
+
+\textbf{Wishlist Endpoints:}
+\begin{itemize}
+    \item GET /wishlists - Retrieve user's saved properties
+    \item POST /wishlists/:propertyId - Add property to wishlist
+    \item DELETE /wishlists/:propertyId - Remove property from wishlist
+\end{itemize}
+
+\textbf{Booking Endpoints:}
+\begin{itemize}
+    \item GET /bookings - List user's bookings
+    \item GET /bookings/:id - Retrieve booking details
+    \item POST /bookings - Schedule property viewing
+    \item PUT /bookings/:id/status - Update booking status
+\end{itemize}
+
+\textbf{Chat Endpoints:}
+\begin{itemize}
+    \item GET /chats - List user's chat conversations
+    \item GET /chats/:id - Retrieve chat details
+    \item POST /chats - Create new chat room
+    \item GET /chats/:chatId/messages - Retrieve chat message history
+\end{itemize}
+
+\subsection{Real-Time Communication}
+
+The WebSocket gateway implements bidirectional communication for instant messaging. Clients connect to the Socket.io server and can emit events to join chat rooms, send messages, and indicate typing status. The server broadcasts these events to relevant participants in real-time.
+
+\textbf{Client to Server Events:}
+\begin{itemize}
+    \item join\_chat - Join a specific chat room
+    \item leave\_chat - Leave a chat room
+    \item send\_message - Send a message to a chat
+    \item typing - Indicate typing status
+\end{itemize}
+
+\textbf{Server to Client Events:}
+\begin{itemize}
+    \item joined\_chat - Confirmation of joining
+    \item left\_chat - Confirmation of leaving
+    \item receive\_message - New message notification
+    \item message\_sent - Message delivery confirmation
+    \item user\_typing - Another user's typing status
+\end{itemize}
+
+\subsection{Security Implementation}
+
+Security is implemented at multiple levels. Passwords are hashed using bcrypt with salt rounds before storage. JWT tokens are used for stateless authentication, with configurable expiration times. Role-based access control (RBAC) is enforced through custom guards that check user roles before allowing access to protected endpoints. Input validation is performed automatically using class-validator decorators on DTOs (Data Transfer Objects), preventing invalid data from entering the system.
+
+\subsection{Error Handling}
+
+A global exception filter catches and formats all errors consistently. The application returns standard HTTP status codes: 200 for successful GET requests, 201 for successful resource creation, 400 for invalid input, 401 for authentication failures, 403 for authorization failures, 404 for missing resources, 409 for conflicts (e.g., duplicate emails), and 500 for server errors.
+
+Overall, our back-end leverages NestJS to create a scalable, maintainable, and secure server that integrates TypeORM for database operations, JWT for authentication, and Socket.io for real-time communication, providing a comprehensive platform for real estate property management and user interaction.
+
+\newpage
+
+\section{Deployment}
+
+In this section, we outline the deployment process for our real estate management application. The deployment strategy ensures that our application is accessible, scalable, and performs efficiently in a production environment.
+
+\subsection{Deployment Platform}
+
+For deploying our application, we utilized Railway, a modern cloud platform renowned for its simplicity, developer experience, and automatic deployments. Railway offers seamless integration with Git repositories, automatic SSL certificates, and built-in monitoring capabilities. For our project, Railway provides an ideal environment with automatic scaling, zero-configuration deployments, and integrated database services.
+
+Railway's platform automatically detects our NestJS application and configures the build process accordingly. The service provides sufficient resources for our initial deployment and allows for easy scaling as the application's user base grows. The platform ensures high availability and performance through its global infrastructure.
+
+\subsection{Database Hosting}
+
+To host our PostgreSQL database, we employed Neon, a serverless PostgreSQL platform designed for modern cloud applications. Neon is known for its instant provisioning, automatic scaling, and branching capabilities, making it an ideal choice for our database needs. Neon provides a fully managed PostgreSQL database with features including automatic backups, point-in-time recovery, and connection pooling.
+
+The Neon database offers several advantages: serverless architecture with automatic scaling based on demand, instant database creation and branching for development and testing, built-in connection pooling for efficient resource utilization, and automatic backups with configurable retention periods. These features ensure that our database remains responsive and reliable under varying loads.
+
+\subsection{Environment Configuration}
+
+The deployment process requires proper configuration of environment variables. Railway provides a secure environment variable management system where we configure the following variables:
+
+\begin{verbatim}
+DATABASE_URL=postgresql://user:password@host:5432/database
+JWT_SECRET=production-secret-key-here
+PORT=3000
+NODE_ENV=production
+\end{verbatim}
+
+The DATABASE\_URL is provided by Neon and includes all connection parameters including SSL configuration. The JWT\_SECRET is set to a strong, randomly generated key for production security. Railway automatically assigns the PORT variable, and NODE\_ENV is set to production to enable production optimizations.
+
+\subsection{Deployment Process}
+
+The deployment process begins with connecting our Git repository to Railway. Railway automatically detects the NestJS application and configures the build process. The platform reads the \texttt{package.json} file to understand dependencies and build scripts.
+
+Railway executes the following steps during deployment:
+
+\textbf{Build Phase:} Railway installs all dependencies using npm install, then runs the build script (npm run build) which compiles TypeScript to JavaScript and generates the production-ready code in the dist directory.
+
+\textbf{Start Phase:} After successful build, Railway starts the application using the start:prod script (node dist/main), which runs the compiled JavaScript code.
+
+\textbf{Health Checks:} Railway monitors the application's health by checking HTTP responses and automatically restarts the service if it becomes unresponsive.
+
+\subsection{Database Connection}
+
+Configuring the database connection involves obtaining the connection string from Neon and setting it as the DATABASE\_URL environment variable in Railway. The TypeORM configuration in our application automatically uses this connection string:
+
+\begin{verbatim}
+TypeOrmModule.forRootAsync({
+  useFactory: (configService: ConfigService) => ({
+    type: 'postgres',
+    url: configService.get('DATABASE_URL'),
+    entities: [__dirname + '/**/*.entity{.ts,.js}'],
+    synchronize: true,
+    ssl: {
+      rejectUnauthorized: false,
+    },
+  }),
+})
+\end{verbatim}
+
+The SSL configuration ensures secure communication between our application and the Neon database. The synchronize option is set to true for automatic schema synchronization, though in production environments, it's recommended to use migrations for better control over database changes.
+
+\subsection{Continuous Deployment}
+
+Railway implements continuous deployment by automatically detecting changes pushed to the connected Git repository. When code is pushed to the main branch, Railway automatically triggers a new deployment, building and deploying the updated application without manual intervention. This ensures that the latest features and bug fixes are deployed quickly and reliably.
+
+The deployment process includes automatic rollback capabilities. If a deployment fails during the build or start phase, Railway automatically reverts to the previous working version, ensuring zero downtime and maintaining service availability.
+
+\subsection{Domain and SSL}
+
+Railway automatically provides a public URL for the deployed application in the format: \texttt{https://project-name.up.railway.app}. The platform automatically provisions and manages SSL certificates, ensuring all communication is encrypted. Custom domains can be configured by adding DNS records and Railway handles SSL certificate generation for custom domains as well.
+
+\subsection{Monitoring and Logs}
+
+Railway provides built-in monitoring and logging capabilities. The platform displays real-time logs from the application, including console output, errors, and request logs. Resource usage metrics including CPU, memory, and network traffic are available through the Railway dashboard. These monitoring tools help identify performance issues and debug problems in production.
+
+\subsection{Scaling Considerations}
+
+Railway supports both vertical and horizontal scaling. Vertical scaling is achieved by upgrading the service plan to allocate more CPU and memory resources. For horizontal scaling, Railway can run multiple instances of the application behind a load balancer, distributing traffic across instances for improved performance and reliability.
+
+The Neon database automatically scales based on demand, adjusting compute resources to handle varying query loads. Connection pooling is automatically managed, ensuring efficient database connection utilization even under high traffic.
+
+\subsection{Backup and Recovery}
+
+Neon provides automatic daily backups with configurable retention periods. Point-in-time recovery allows restoring the database to any moment within the retention period. Railway maintains deployment history, allowing quick rollback to previous versions if issues arise.
+
+\subsection{Security Measures}
+
+Security in production is ensured through multiple layers. All communication uses HTTPS with automatically managed SSL certificates. Environment variables containing sensitive information (database credentials, JWT secrets) are encrypted and securely stored by Railway. The Neon database requires SSL connections and implements IP whitelisting if needed. Railway provides DDoS protection and automatic security updates for the underlying infrastructure.
+
+\subsection{Performance Optimization}
+
+To ensure optimal performance, the application is built with production optimizations enabled. TypeScript compilation removes development code and optimizes the output. The NestJS framework runs in production mode, disabling development features and enabling caching. Database queries are optimized using TypeORM's query builder and proper indexing on frequently queried columns.
+
+By leveraging Railway's seamless deployment platform and Neon's serverless PostgreSQL database, we have deployed a robust, scalable, and secure real estate management application. This setup not only ensures high availability and performance but also provides a foundation for future growth and enhancements. The automated deployment pipeline reduces manual intervention, allowing the development team to focus on building features rather than managing infrastructure.
